@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Album Cover Sheet Generator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- jsPDF for reliable direct PDF generation on mobile & desktop -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        @media print {
+            html, body {
+                background: white !important;
+                color: black !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            @page {
+                size: letter portrait;
+                margin: 0;
+            }
+            .page-break {
+                page-break-after: always;
+                break-after: page;
+            }
+            .page-break:last-child {
+                page-break-after: auto;
+                break-after: auto;
+            }
+        }
+        .print-only {
+            display: none;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans h-full flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+
+    <!-- Header / Navbar -->
+    <header class="bg-slate-800 border-b border-slate-700 shadow-sm no-print sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+            <div class="flex items-center space-x-2.5 min-w-0">
+                <div class="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center shadow-md shadow-indigo-500/20">
+                    <i class="fa-solid fa-compact-disc text-white text-lg sm:text-xl"></i>
+                </div>
+                <div class="truncate">
+                    <h1 class="text-base sm:text-lg font-bold text-white tracking-tight truncate">AlbumCoverSheet</h1>
+                    <p class="text-[11px] sm:text-xs text-slate-400 truncate">Mini Print Generator (US Letter)</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2 shrink-0">
+                <button onclick="loadSampleData()" class="px-2.5 sm:px-3 py-2 text-xs font-medium text-slate-300 hover:text-white bg-slate-700/60 hover:bg-slate-700 rounded-xl transition-colors border border-slate-600 flex items-center">
+                    <i class="fa-solid fa-wand-magic-sparkles sm:mr-1.5 text-indigo-400"></i>
+                    <span class="hidden sm:inline">Load Sample</span>
+                </button>
+                <button onclick="downloadSheetAsPNG()" id="png-btn" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs sm:text-sm font-semibold rounded-xl border border-slate-600 transition-all flex items-center space-x-1.5">
+                    <i class="fa-solid fa-image text-emerald-400"></i>
+                    <span class="hidden md:inline">Save PNG</span>
+                </button>
+                <button onclick="downloadSheetAsPDF()" id="pdf-btn" class="px-3 sm:px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center space-x-1.5 sm:space-x-2">
+                    <i class="fa-solid fa-file-pdf"></i>
+                    <span>Download PDF</span>
+                </button>
+                <button onclick="triggerBrowserPrint()" title="Open System Print Dialog" class="px-2.5 sm:px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs sm:text-sm font-semibold rounded-xl border border-slate-600 transition-all flex items-center">
+                    <i class="fa-solid fa-print"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Layout -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
+        
+        <!-- Left Sidebar: Controls & Input (No Print) -->
+        <section class="lg:col-span-5 flex flex-col bg-slate-800/90 backdrop-blur border border-slate-700/80 rounded-2xl shadow-xl overflow-hidden no-print">
+            <div class="p-4 sm:p-5 border-b border-slate-700/80 bg-slate-800 flex justify-between items-center">
+                <h2 class="font-semibold text-slate-200 flex items-center space-x-2 text-sm sm:text-base">
+                    <i class="fa-solid fa-list-ul text-indigo-400"></i>
+                    <span>Album List</span>
+                </h2>
+                <div class="flex items-center space-x-2">
+                    <span id="album-count-badge" class="text-xs px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 font-medium border border-indigo-500/30">0 albums</span>
+                    <button onclick="clearInput()" class="text-xs text-slate-400 hover:text-rose-400 px-2 py-1 rounded-lg hover:bg-slate-700/60 transition-colors">
+                        Clear
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-4 sm:p-5 flex-1 flex flex-col space-y-4 overflow-y-auto">
+                <!-- Quick Single Album Entry (Great for Phone Typing) -->
+                <div class="space-y-1.5">
+                    <label for="quick-album-input" class="text-xs font-medium text-slate-300 flex items-center justify-between">
+                        <span>Type & Add Single Album:</span>
+                        <span class="text-[11px] text-slate-400">Artist - Title</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <input type="text" id="quick-album-input" placeholder="e.g. Frank Ocean - Blonde" onkeydown="if(event.key==='Enter'){ event.preventDefault(); addSingleAlbum(); }" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button onclick="addSingleAlbum()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold rounded-xl transition-colors shrink-0 flex items-center gap-1.5 shadow-md shadow-indigo-600/20">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>Add</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bulk Paste Textarea -->
+                <div class="space-y-1.5">
+                    <label for="album-input" class="text-xs font-medium text-slate-300 flex items-center justify-between">
+                        <span>Or Paste Multiple Albums (one per line):</span>
+                    </label>
+                    <textarea id="album-input" rows="4" placeholder="Daft Punk - Discovery&#10;Radiohead - Kid A&#10;The Beatles - Abbey Road" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all font-mono"></textarea>
+                </div>
+
+                <!-- Save / Load List Manager -->
+                <div class="bg-slate-900/60 border border-slate-700/70 rounded-xl p-3.5 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-bookmark text-emerald-400"></i>
+                            <span>Saved Lists & Cover Choices</span>
+                        </span>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="exportListFile()" title="Download backup JSON file" class="text-[11px] px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors">
+                                <i class="fa-solid fa-download mr-1"></i>Backup
+                            </button>
+                            <label title="Import backup JSON file" class="cursor-pointer text-[11px] px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors">
+                                <i class="fa-solid fa-upload mr-1"></i>Import
+                                <input type="file" accept=".json,application/json" class="hidden" onchange="importListFile(event)">
+                            </label>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="text" id="save-list-name" placeholder="List name (e.g. Car CDs)" class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        <button onclick="saveCurrentList()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-colors shrink-0 flex items-center gap-1">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            <span>Save</span>
+                        </button>
+                    </div>
+                    <div id="saved-lists-container" class="space-y-1.5 max-h-28 overflow-y-auto">
+                        <!-- Saved lists rendered here -->
+                    </div>
+                </div>
+
+                <!-- Settings Box -->
+                <div class="bg-slate-900/60 border border-slate-700/70 rounded-xl p-4 space-y-4">
+                    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-sliders text-indigo-400"></i>
+                        <span>Print Settings</span>
+                    </h3>
+
+                    <!-- Size Slider -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-300">Square Cover Size:</span>
+                            <span id="size-display" class="font-bold text-indigo-400">1.50 in (35/page)</span>
+                        </div>
+                        <input type="range" id="cover-size-range" min="1.0" max="3.0" step="0.25" value="1.5" oninput="updateCoverSize(this.value)" class="w-full accent-indigo-500 bg-slate-700 rounded-lg h-2.5 cursor-pointer">
+                        <div class="flex justify-between text-[11px] text-slate-400">
+                            <span>1.0"</span>
+                            <span>1.5" (Default)</span>
+                            <span>2.0"</span>
+                            <span>3.0"</span>
+                        </div>
+                    </div>
+
+                    <!-- Cut Lines Toggle -->
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+                        <div>
+                            <span class="text-xs font-medium text-slate-200 block">Cut Lines / Crop Marks</span>
+                            <span class="text-[11px] text-slate-400">Show dashed borders around covers</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer p-1">
+                            <input type="checkbox" id="cut-lines-toggle" checked onchange="renderPreview()" class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[6px] after:left-[6px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <button onclick="processAlbums()" id="fetch-btn" class="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/25 transition-all flex items-center justify-center space-x-2 text-sm sm:text-base">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <span>Fetch Covers & Generate Sheet</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Right Section: Interactive Review & Live Preview -->
+        <section class="lg:col-span-7 flex flex-col bg-slate-800/90 backdrop-blur border border-slate-700/80 rounded-2xl shadow-xl overflow-hidden no-print min-h-[520px] lg:h-[calc(100vh-7rem)]">
+            <!-- Tabs -->
+            <div class="flex border-b border-slate-700 bg-slate-800 px-3 sm:px-4 pt-3 space-x-3 sm:space-x-4 overflow-x-auto">
+                <button onclick="switchTab('preview')" id="tab-preview" class="pb-3 text-xs sm:text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 flex items-center space-x-1.5 sm:space-x-2 transition-all whitespace-nowrap">
+                    <i class="fa-solid fa-file-pdf"></i>
+                    <span>Print Sheet Preview</span>
+                </button>
+                <button onclick="switchTab('manage')" id="tab-manage" class="pb-3 text-xs sm:text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-1.5 sm:space-x-2 transition-all whitespace-nowrap">
+                    <i class="fa-solid fa-images"></i>
+                    <span>Swap / Edit Covers (<span id="review-count">0</span>)</span>
+                </button>
+            </div>
+
+            <!-- Tab Content Area -->
+            <div class="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 bg-slate-950/40 relative" id="preview-scroll-wrapper">
+                
+                <!-- PREVIEW TAB -->
+                <div id="content-preview" class="space-y-6 flex flex-col items-center w-full">
+                    <div id="preview-container" class="w-full flex flex-col items-center space-y-6">
+                        <!-- Empty state -->
+                        <div id="preview-empty" class="text-center py-12 sm:py-16 px-4 space-y-4">
+                            <div class="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto text-indigo-400 text-2xl shadow-inner">
+                                <i class="fa-solid fa-compact-disc"></i>
+                            </div>
+                            <div class="max-w-sm mx-auto">
+                                <h3 class="text-base font-semibold text-slate-200">No album covers generated yet</h3>
+                                <p class="text-xs text-slate-400 mt-1">Type an album above or paste your list, then tap "Fetch Covers & Generate Sheet" to build your printable page.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MANAGE / REVIEW TAB -->
+                <div id="content-manage" class="hidden space-y-4">
+                    <div class="flex flex-wrap justify-between items-center gap-2">
+                        <p class="text-xs text-slate-400">Tap any cover to pick another match, upload your own photo, or remove it.</p>
+                        <button onclick="refetchAll()" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium py-1 px-2 bg-slate-800 rounded-lg border border-slate-700">
+                            <i class="fa-solid fa-rotate mr-1"></i> Refresh All
+                        </button>
+                    </div>
+                    <div id="manage-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <!-- Dynamic manage cards -->
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Print Only Layout (Hidden on Screen UI, rendered when printing) -->
+    <div id="print-root" class="print-only">
+        <!-- Rendered dynamically during print -->
+    </div>
+
+    <!-- Modal for Alternative Covers / Custom Upload -->
+    <div id="cover-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-start border-b border-slate-700 pb-3 sm:pb-4 gap-3">
+                <div class="min-w-0">
+                    <h3 class="text-base font-bold text-white truncate" id="modal-album-title">Select Alternative Cover</h3>
+                    <p class="text-xs text-slate-400 truncate" id="modal-album-artist">Choose a better match or upload custom art</p>
+                </div>
+                <button onclick="closeModal()" class="w-9 h-9 shrink-0 rounded-xl bg-slate-700/60 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Custom File Upload Option -->
+            <div class="bg-slate-900/60 border border-dashed border-slate-600 rounded-xl p-3 sm:p-4 text-center">
+                <input type="file" id="custom-file-input" accept="image/*" class="hidden" onchange="handleCustomFileUpload(event)">
+                <label for="custom-file-input" class="cursor-pointer flex flex-col items-center space-y-1">
+                    <i class="fa-solid fa-cloud-arrow-up text-xl sm:text-2xl text-indigo-400"></i>
+                    <span class="text-xs font-semibold text-slate-200">Upload photo from phone / device</span>
+                    <span class="text-[11px] text-slate-400">PNG, JPG, WEBP (Square recommended)</span>
+                </label>
+            </div>
+
+            <!-- Custom Search Bar inside Modal -->
+            <div class="space-y-1.5">
+                <label for="modal-custom-search" class="text-xs font-semibold uppercase tracking-wider text-slate-400">Search more libraries manually:</label>
+                <div class="flex gap-2">
+                    <input type="text" id="modal-custom-search" placeholder="Search artist, album, or deluxe edition..." onkeydown="if(event.key==='Enter') searchMoreInModal()" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <button onclick="searchMoreInModal()" id="modal-search-btn" class="px-3.5 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-xl transition-colors shrink-0 flex items-center gap-1.5">
+                        <i class="fa-solid fa-magnifying-glass text-indigo-400"></i>
+                        <span>Search</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Matches found (<span id="modal-match-count">0</span>):</span>
+                    <span class="text-[11px] text-slate-500">iTunes • Deezer • MusicBrainz</span>
+                </div>
+                <div id="modal-alternatives-grid" class="grid grid-cols-3 sm:grid-cols-5 gap-2.5 max-h-56 overflow-y-auto p-1">
+                    <!-- Alternatives populated here -->
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center pt-3 border-t border-slate-700">
+                <button onclick="removeCurrentAlbum()" class="px-3.5 py-2 bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span>Remove Album</span>
+                </button>
+                <button onclick="closeModal()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition-colors">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-800 border border-slate-700 text-slate-100 px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toast-message" class="text-xs font-medium">Notification message</span>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        let albumsData = [];
+        let coverSize = 1.5; // inches
+        let activeModalIndex = null;
+
+        // Add single album typed on mobile or desktop
+        async function addSingleAlbum() {
+            const quickInput = document.getElementById('quick-album-input');
+            const val = quickInput ? quickInput.value.trim() : '';
+            if (!val) {
+                showToast("Type 'Artist - Album Title' first", "error");
+                return;
+            }
+
+            // Append to main textarea so list stays synced
+            const textarea = document.getElementById('album-input');
+            if (textarea) {
+                textarea.value = textarea.value.trim() ? `${textarea.value.trim()}\n${val}` : val;
+            }
+            quickInput.value = '';
+
+            let parts = val.split('-');
+            let artist = parts[0] ? parts[0].trim() : '';
+            let title = parts.slice(1).join('-').trim() || artist;
+
+            const newItem = {
+                id: Math.random().toString(36).substr(2, 9),
+                query: val,
+                artist: artist,
+                title: title,
+                results: [],
+                selectedIndex: 0,
+                status: 'loading'
+            };
+
+            albumsData.push(newItem);
+            const idx = albumsData.length - 1;
+
+            updateAlbumCounts();
+
+            renderManageGrid();
+            renderPreview();
+
+            await fetchAlbumCover(idx);
+            renderManageGrid();
+            renderPreview();
+            showToast(`Added "${title}"`, "success");
+        }
+
+        function updateAlbumCounts() {
+            const badge = document.getElementById('album-count-badge');
+            const review = document.getElementById('review-count');
+            if (badge) badge.innerText = `${albumsData.length} albums`;
+            if (review) review.innerText = albumsData.length;
+        }
+
+        // Remove album from modal
+        function removeCurrentAlbum() {
+            if (activeModalIndex !== null) {
+                const removed = albumsData.splice(activeModalIndex, 1)[0];
+                // Sync textarea
+                const textarea = document.getElementById('album-input');
+                if (textarea) textarea.value = albumsData.map(a => a.query).join('\n');
+                updateAlbumCounts();
+                closeModal();
+                showToast(`Removed "${removed.title}"`, "info");
+            }
+        }
+
+        // Sample data loader
+        function loadSampleData() {
+            const sample = [
+                "Daft Punk - Discovery",
+                "Radiohead - Kid A",
+                "The Beatles - Abbey Road",
+                "Pink Floyd - The Dark Side of the Moon",
+                "Kendrick Lamar - To Pimp A Butterfly",
+                "Frank Ocean - Blonde",
+                "Tame Impala - Currents",
+                "Fleetwood Mac - Rumours",
+                "Tyler, The Creator - IGOR",
+                "Nirvana - Nevermind"
+            ];
+            document.getElementById('album-input').value = sample.join('\n');
+            processAlbums();
+        }
+
+        // Clear all albums and input
+        function clearInput() {
+            const textarea = document.getElementById('album-input');
+            const quickInput = document.getElementById('quick-album-input');
+            if (textarea) textarea.value = '';
+            if (quickInput) quickInput.value = '';
+            albumsData = [];
+            updateAlbumCounts();
+            renderManageGrid();
+            renderPreview();
+            showToast("Cleared all albums", "info");
+        }
+
+        // Update cover size from slider
+        function updateCoverSize(val) {
+            coverSize = parseFloat(val);
+            const cols = Math.floor(7.5 / coverSize);
+            const rows = Math.floor(10.5 / coverSize);
+            const perPage = Math.max(1, cols * rows);
+            document.getElementById('size-display').innerText = `${coverSize.toFixed(2)} in (${perPage}/page)`;
+            renderPreview();
+        }
+
+        // Switch between Print Preview and Swap/Edit tabs
+        function switchTab(tab) {
+            const previewTab = document.getElementById('tab-preview');
+            const manageTab = document.getElementById('tab-manage');
+            const previewContent = document.getElementById('content-preview');
+            const manageContent = document.getElementById('content-manage');
+
+            if (tab === 'preview') {
+                previewTab.className = "pb-3 text-xs sm:text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 flex items-center space-x-1.5 sm:space-x-2 transition-all whitespace-nowrap";
+                manageTab.className = "pb-3 text-xs sm:text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-1.5 sm:space-x-2 transition-all whitespace-nowrap";
+                previewContent.classList.remove('hidden');
+                manageContent.classList.add('hidden');
+                renderPreview();
+            } else {
+                manageTab.className = "pb-3 text-xs sm:text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 flex items-center space-x-1.5 sm:space-x-2 transition-all whitespace-nowrap";
+                previewTab.className = "pb-3 text-xs sm:text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-1.5 sm:space-x-2 transition-all whitespace-nowrap";
+                manageContent.classList.remove('hidden');
+                previewContent.classList.add('hidden');
+                renderManageGrid();
+            }
+        }
+
+        // Process full textarea list and fetch covers
+        async function processAlbums() {
+            const raw = document.getElementById('album-input').value;
+            const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            if (lines.length === 0) {
+                showToast("Paste or type at least one album first!", "error");
+                return;
+            }
+
+            const btn = document.getElementById('fetch-btn');
+            const origHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i><span>Fetching Covers...</span>`;
+
+            albumsData = lines.map(line => {
+                const parts = line.split('-');
+                const artist = parts[0] ? parts[0].trim() : '';
+                const title = parts.slice(1).join('-').trim() || artist;
+                return {
+                    id: Math.random().toString(36).substr(2, 9),
+                    query: line,
+                    artist: artist,
+                    title: title,
+                    results: [],
+                    selectedIndex: 0,
+                    status: 'loading'
+                };
+            });
+
+            updateAlbumCounts();
+            renderManageGrid();
+            renderPreview();
+
+            await Promise.all(albumsData.map((_, idx) => fetchAlbumCover(idx)));
+
+            renderManageGrid();
+            renderPreview();
+
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+            showToast(`Loaded ${albumsData.length} album(s)!`, "success");
+        }
+
+        // Re-fetch all covers currently in the list
+        async function refetchAll() {
+            if (albumsData.length === 0) return;
+            showToast("Refreshing all album covers...", "info");
+            albumsData.forEach(a => a.status = 'loading');
+            renderManageGrid();
+            await Promise.all(albumsData.map((_, idx) => fetchAlbumCover(idx)));
+            renderManageGrid();
+            renderPreview();
+            showToast("All covers refreshed!", "success");
+        }
+
+        // Fetch high-res artwork across multiple libraries (iTunes, Deezer, MusicBrainz / Cover Art Archive)
+        async function fetchAlbumCover(index, customOverrideQuery = null) {
+            const item = albumsData[index];
+            if (!item) return;
+
+            const queryStr = customOverrideQuery || `${item.artist} ${item.title}`.trim();
+            const collected = [];
+            const seenUrls = new Set();
+
+            const addUniqueResult = (url, collectionName, artistName, source) => {
+                if (!url) return;
+                const cleanUrl = url.replace(/^http:\/\//i, 'https://');
+                if (!seenUrls.has(cleanUrl)) {
+                    seenUrls.add(cleanUrl);
+                    collected.push({
+                        artworkUrl: cleanUrl,
+                        collectionName: collectionName || item.title,
+                        artistName: artistName || item.artist,
+                        source: source
+                    });
+                }
+            };
+
+            // 1. iTunes Search API (Album + Song fallback for singles/mixtapes)
+            const fetchItunes = async (term, entity = 'album', limit = 12) => {
+                try {
+                    const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=${entity}&limit=${limit}`);
+                    const data = await res.json();
+                    if (data.results) {
+                        data.results.forEach(r => {
+                            if (r.artworkUrl100) {
+                                addUniqueResult(
+                                    r.artworkUrl100.replace('100x100bb', '600x600bb'),
+                                    r.collectionName || r.trackName,
+                                    r.artistName,
+                                    'iTunes'
+                                );
+                            }
+                        });
+                    }
+                } catch (e) { /* ignore individual source failure */ }
+            };
+
+            // 2. Deezer Public API via JSONP (bypasses browser CORS cleanly)
+            const fetchDeezer = (term) => {
+                return new Promise((resolve) => {
+                    const cbName = 'dz_cb_' + Math.random().toString(36).substr(2, 9);
+                    const script = document.createElement('script');
+                    const timer = setTimeout(() => {
+                        cleanup();
+                        resolve();
+                    }, 4500);
+
+                    function cleanup() {
+                        clearTimeout(timer);
+                        delete window[cbName];
+                        if (script.parentNode) script.parentNode.removeChild(script);
+                    }
+
+                    window[cbName] = (data) => {
+                        if (data && data.data) {
+                            data.data.forEach(alb => {
+                                const cover = alb.cover_xl || alb.cover_big || alb.cover_medium;
+                                if (cover) {
+                                    addUniqueResult(
+                                        cover,
+                                        alb.title,
+                                        alb.artist ? alb.artist.name : item.artist,
+                                        'Deezer'
+                                    );
+                                }
+                            });
+                        }
+                        cleanup();
+                        resolve();
+                    };
+
+                    script.src = `https://api.deezer.com/search/album?q=${encodeURIComponent(term)}&limit=12&output=jsonp&callback=${cbName}`;
+                    script.onerror = () => { cleanup(); resolve(); };
+                    document.body.appendChild(script);
+                });
+            };
+
+            // 3. MusicBrainz + Cover Art Archive (great for indie, deluxe, vinyl, and regional pressings)
+            const fetchMusicBrainz = async (term) => {
+                try {
+                    const res = await fetch(`https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(term)}&limit=8&fmt=json`, {
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    const data = await res.json();
+                    if (data['release-groups']) {
+                        data['release-groups'].forEach(rg => {
+                            if (rg.id) {
+                                addUniqueResult(
+                                    `https://coverartarchive.org/release-group/${rg.id}/front-500`,
+                                    rg.title,
+                                    rg['artist-credit']?.[0]?.name || item.artist,
+                                    'MusicBrainz'
+                                );
+                            }
+                        });
+                    }
+                } catch (e) { /* ignore individual source failure */ }
+            };
+
+            try {
+                // Run all three libraries in parallel
+                await Promise.all([
+                    fetchItunes(queryStr, 'album', 12),
+                    fetchDeezer(queryStr),
+                    fetchMusicBrainz(queryStr)
+                ]);
+
+                // If fewer than 4 options found, broaden search using title-only & song search
+                if (collected.length < 4 && item.title && item.title.toLowerCase() !== queryStr.toLowerCase()) {
+                    await Promise.all([
+                        fetchItunes(item.title, 'album', 8),
+                        fetchItunes(queryStr, 'song', 8),
+                        fetchDeezer(item.title)
+                    ]);
+                }
+
+                if (customOverrideQuery && item.results && item.results.length > 0) {
+                    // Append newly searched covers without wiping existing custom uploads
+                    item.results.forEach(existing => {
+                        if (!seenUrls.has(existing.artworkUrl)) {
+                            collected.push(existing);
+                        }
+                    });
+                }
+
+                if (collected.length > 0) {
+                    item.results = collected;
+                    item.selectedIndex = 0;
+                    item.status = 'found';
+                } else {
+                    item.results = [{
+                        artworkUrl: `https://placehold.co/600x600/1e293b/cbd5e1?text=${encodeURIComponent(item.title)}`,
+                        collectionName: item.title,
+                        artistName: item.artist,
+                        source: 'Placeholder'
+                    }];
+                    item.status = 'not-found';
+                }
+            } catch (err) {
+                console.error("Error fetching cover for", item.query, err);
+                item.results = [{
+                    artworkUrl: `https://placehold.co/600x600/1e293b/cbd5e1?text=${encodeURIComponent(item.title)}`,
+                    collectionName: item.title,
+                    artistName: item.artist,
+                    source: 'Placeholder'
+                }];
+                item.status = 'error';
+            }
+        }
+
+        // Render interactive cards for swapping/removing covers
+        function renderManageGrid() {
+            const grid = document.getElementById('manage-grid');
+            if (!grid) return;
+
+            if (albumsData.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-8 text-xs text-slate-400">No albums added yet.</div>`;
+                return;
+            }
+
+            let html = '';
+            albumsData.forEach((album, index) => {
+                const currentCover = album.results[album.selectedIndex]?.artworkUrl || 'https://placehold.co/300x300/1e293b/475569?text=Loading...';
+                const altCount = album.results.length;
+
+                html += `
+                    <div onclick="openModal(${index})" class="group relative bg-slate-900 border border-slate-700/80 hover:border-indigo-500/80 rounded-xl overflow-hidden cursor-pointer transition-all shadow-md flex flex-col">
+                        <div class="relative aspect-square w-full bg-slate-950 overflow-hidden">
+                            <img src="${currentCover}" alt="${album.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy">
+                            ${album.status === 'loading' ? `
+                                <div class="absolute inset-0 bg-slate-900/70 flex items-center justify-center">
+                                    <i class="fa-solid fa-spinner animate-spin text-indigo-400 text-xl"></i>
+                                </div>
+                            ` : ''}
+                            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-2">
+                                <span class="text-[11px] font-medium text-white bg-indigo-600/90 px-2 py-0.5 rounded-md shadow">
+                                    <i class="fa-solid fa-images mr-1"></i>Edit (${altCount})
+                                </span>
+                            </div>
+                        </div>
+                        <div class="p-2.5 flex-1 flex flex-col justify-between bg-slate-900">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-100 truncate">${album.title}</p>
+                                <p class="text-[11px] text-slate-400 truncate">${album.artist}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            grid.innerHTML = html;
+        }
+
+        // Render Preview & Print Sheet Layout (Responsive scaling for phones + exact US Letter for print)
+        function renderPreview() {
+            const container = document.getElementById('preview-container');
+            const printRoot = document.getElementById('print-root');
+
+            if (albumsData.length === 0) {
+                container.innerHTML = `
+                    <div id="preview-empty" class="text-center py-12 sm:py-16 px-4 space-y-4">
+                        <div class="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto text-indigo-400 text-2xl shadow-inner">
+                            <i class="fa-solid fa-compact-disc"></i>
+                        </div>
+                        <div class="max-w-sm mx-auto">
+                            <h3 class="text-base font-semibold text-slate-200">No album covers generated yet</h3>
+                            <p class="text-xs text-slate-400 mt-1">Type an album above or paste your list, then tap "Fetch Covers & Generate Sheet" to build your printable page.</p>
+                        </div>
+                    </div>
+                `;
+                printRoot.innerHTML = '';
+                return;
+            }
+
+            // US Letter printable area calculation:
+            // 8.5" x 11" paper with 0.5" left/right margins (7.5" usable width) and 0.25" top/bottom margins (10.5" usable height)
+            // This allows exact 5x7 = 35 covers at 1.5" x 1.5"!
+            const usableWidthInches = 7.5;
+            const usableHeightInches = 10.5;
+
+            const cols = Math.floor(usableWidthInches / coverSize);
+            const rows = Math.floor(usableHeightInches / coverSize);
+            const perPage = Math.max(1, cols * rows);
+
+            const cutLinesEnabled = document.getElementById('cut-lines-toggle').checked;
+
+            // Calculate responsive scale factor so the 7.5in sheet fits comfortably inside phone screens without horizontal scroll
+            const wrapper = document.getElementById('preview-scroll-wrapper');
+            const availablePx = wrapper ? Math.max(260, wrapper.clientWidth - 36) : 600;
+            const targetPxWidth = 7.5 * 96; // 720px at 96dpi
+            const scale = Math.min(1, availablePx / targetPxWidth);
+
+            // Split albums into pages
+            let pages = [];
+            for (let i = 0; i < albumsData.length; i += perPage) {
+                pages.push(albumsData.slice(i, i + perPage));
+            }
+
+            let previewHtml = '';
+            let printHtml = '';
+
+            pages.forEach((pageAlbums, pageIdx) => {
+                const scaledHeightPx = Math.round((10.5 * 96) * scale);
+
+                // Screen preview page wrapper with responsive transform scaling
+                previewHtml += `
+                    <div style="width: ${Math.round(targetPxWidth * scale)}px; height: ${scaledHeightPx}px; position: relative;" class="mx-auto">
+                        <div class="bg-white text-slate-900 shadow-2xl rounded-lg p-[0.25in] flex flex-col justify-between select-none origin-top-left" style="width: 7.5in; height: 10.5in; transform: scale(${scale});">
+                            <div class="grid gap-0 mx-auto" style="grid-template-columns: repeat(${cols}, ${coverSize}in); grid-auto-rows: ${coverSize}in;">
+                `;
+
+                // Print page wrapper
+                printHtml += `
+                    <div class="page-container page-break" style="width: 8.5in; height: 11.0in; padding: 0.25in 0.5in; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; page-break-after: always;">
+                        <div style="display: grid; grid-template-columns: repeat(${cols}, ${coverSize}in); grid-auto-rows: ${coverSize}in; margin: 0 auto;">
+                `;
+
+                pageAlbums.forEach((album) => {
+                    const imgUrl = album.results[album.selectedIndex]?.artworkUrl || 'https://placehold.co/600x600/1e293b/cbd5e1?text=Cover';
+                    const borderStyle = cutLinesEnabled ? 'border: 1px dashed #94a3b8;' : 'border: none;';
+
+                    const cellHtml = `
+                        <div style="width: ${coverSize}in; height: ${coverSize}in; ${borderStyle} box-sizing: border-box; overflow: hidden; background: #000; position: relative;">
+                            <img src="${imgUrl}" onerror="this.onerror=null;this.src='https://placehold.co/600x600/1e293b/cbd5e1?text=${encodeURIComponent(album.title)}';" style="width: 100%; height: 100%; object-fit: cover; display: block;" crossorigin="anonymous">
+                        </div>
+                    `;
+                    previewHtml += cellHtml;
+                    printHtml += cellHtml;
+                });
+
+                // Fill remaining empty cells in grid if any to keep alignment neat
+                const totalCells = cols * rows;
+                const emptyCells = totalCells - pageAlbums.length;
+                for (let e = 0; e < emptyCells; e++) {
+                    const emptyHtml = `<div style="width: ${coverSize}in; height: ${coverSize}in; ${cutLinesEnabled ? 'border: 1px dashed #e2e8f0;' : ''} box-sizing: border-box;"></div>`;
+                    previewHtml += emptyHtml;
+                    printHtml += emptyHtml;
+                }
+
+                previewHtml += `
+                            </div>
+                            <div class="flex justify-between items-center text-[10px] text-slate-400 pt-2 border-t border-slate-100">
+                                <span>AlbumCoverSheet • Page ${pageIdx + 1} of ${pages.length}</span>
+                                <span>${coverSize}" x ${coverSize}" (${cols}×${rows} = ${perPage}/page)</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                printHtml += `
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 8pt; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 3pt;">
+                            <span>AlbumCoverSheet • Page ${pageIdx + 1} of ${pages.length}</span>
+                            <span>Size: ${coverSize}" x ${coverSize}"</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = previewHtml;
+            printRoot.innerHTML = printHtml;
+        }
+
+        // Export first page (or all pages) as a high-res 300 DPI PNG image for mobile/desktop saving
+        async function downloadSheetAsPNG() {
+            if (albumsData.length === 0) {
+                showToast("Add at least one album cover first!", "error");
+                return;
+            }
+
+            const btn = document.getElementById('png-btn');
+            const origHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i>`;
+
+            try {
+                const dpi = 300; // Print-ready 300 DPI
+                const pageW = 8.5 * dpi; // 2550px
+                const pageH = 11.0 * dpi; // 3300px
+                const usableW = 7.5 * dpi;
+                const usableH = 10.5 * dpi;
+
+                const cols = Math.floor(7.5 / coverSize);
+                const rows = Math.floor(10.5 / coverSize);
+                const perPage = Math.max(1, cols * rows);
+                const cellPx = Math.round(coverSize * dpi);
+                const cutLinesEnabled = document.getElementById('cut-lines-toggle').checked;
+
+                const totalPages = Math.ceil(albumsData.length / perPage);
+
+                for (let p = 0; p < totalPages; p++) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = pageW;
+                    canvas.height = pageH;
+                    const ctx = canvas.getContext('2d');
+
+                    // White US Letter background
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, pageW, pageH);
+
+                    const gridW = cols * cellPx;
+                    const startX = Math.round((pageW - gridW) / 2);
+                    const startY = Math.round(0.25 * dpi);
+
+                    const slice = albumsData.slice(p * perPage, (p + 1) * perPage);
+
+                    for (let i = 0; i < slice.length; i++) {
+                        const r = Math.floor(i / cols);
+                        const c = i % cols;
+                        const x = startX + c * cellPx;
+                        const y = startY + r * cellPx;
+
+                        const imgUrl = slice[i].results[slice[i].selectedIndex]?.artworkUrl;
+                        const imgData = await getImageDataUrlForPdf(imgUrl);
+                        if (imgData) {
+                            await new Promise((resolve) => {
+                                const img = new Image();
+                                img.onload = () => {
+                                    ctx.drawImage(img, x, y, cellPx, cellPx);
+                                    resolve();
+                                };
+                                img.onerror = () => resolve();
+                                img.src = imgData;
+                            });
+                        }
+
+                        if (cutLinesEnabled) {
+                            ctx.save();
+                            ctx.strokeStyle = '#94a3b8';
+                            ctx.lineWidth = 3;
+                            ctx.setLineDash([12, 12]);
+                            ctx.strokeRect(x, y, cellPx, cellPx);
+                            ctx.restore();
+                        }
+                    }
+
+                    const link = document.createElement('a');
+                    link.download = `album-covers-page-${p + 1}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                }
+
+                showToast(`Downloaded ${totalPages} high-res PNG page(s)!`, "success");
+            } catch (err) {
+                console.error(err);
+                showToast("Could not export PNG (try Download PDF instead)", "error");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
+        }
+
+        // Helper: load image via CORS-safe fetch/Image fallback and convert to JPEG DataURL for jsPDF
+        async function getImageDataUrlForPdf(url) {
+            if (!url) return null;
+            if (url.startsWith('data:image/')) return url;
+
+            // Try direct Image load with crossOrigin first
+            const loadImgElement = (srcUrl) => new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    try {
+                        const c = document.createElement('canvas');
+                        c.width = img.naturalWidth || 600;
+                        c.height = img.naturalHeight || 600;
+                        const ctx = c.getContext('2d');
+                        ctx.fillStyle = '#000000';
+                        ctx.fillRect(0, 0, c.width, c.height);
+                        ctx.drawImage(img, 0, 0, c.width, c.height);
+                        resolve(c.toDataURL('image/jpeg', 0.92));
+                    } catch (e) {
+                        resolve(null);
+                    }
+                };
+                img.onerror = () => resolve(null);
+                img.src = srcUrl;
+            });
+
+            let dataUrl = await loadImgElement(url);
+            if (dataUrl) return dataUrl;
+
+            // Fallback via CORS image proxy for sources like MusicBrainz Cover Art Archive
+            const proxied = `https://images.weserv.nl/?url=${encodeURIComponent(url.replace(/^https?:\/\//, ''))}&w=600&h=600&fit=cover`;
+            return await loadImgElement(proxied);
+        }
+
+        // Generate and download an exact US Letter (8.5" x 11") multi-page PDF file
+        async function downloadSheetAsPDF() {
+            if (albumsData.length === 0) {
+                showToast("Add at least one album cover first!", "error");
+                return;
+            }
+
+            if (!window.jspdf || !window.jspdf.jsPDF) {
+                triggerBrowserPrint();
+                return;
+            }
+
+            const btn = document.getElementById('pdf-btn');
+            const origHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i><span>Building PDF...</span>`;
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'in',
+                    format: 'letter' // 8.5 x 11 inches
+                });
+
+                const cols = Math.floor(7.5 / coverSize);
+                const rows = Math.floor(10.5 / coverSize);
+                const perPage = Math.max(1, cols * rows);
+                const cutLinesEnabled = document.getElementById('cut-lines-toggle').checked;
+                const totalPages = Math.ceil(albumsData.length / perPage);
+
+                const gridW = cols * coverSize;
+                const startX = (8.5 - gridW) / 2;
+                const startY = 0.25;
+
+                for (let p = 0; p < totalPages; p++) {
+                    if (p > 0) doc.addPage('letter', 'portrait');
+
+                    const slice = albumsData.slice(p * perPage, (p + 1) * perPage);
+
+                    for (let i = 0; i < slice.length; i++) {
+                        const r = Math.floor(i / cols);
+                        const c = i % cols;
+                        const x = startX + c * coverSize;
+                        const y = startY + r * coverSize;
+
+                        const imgUrl = slice[i].results[slice[i].selectedIndex]?.artworkUrl;
+                        const imgData = await getImageDataUrlForPdf(imgUrl);
+
+                        if (imgData) {
+                            doc.addImage(imgData, 'JPEG', x, y, coverSize, coverSize);
+                        } else {
+                            doc.setFillColor(30, 41, 59);
+                            doc.rect(x, y, coverSize, coverSize, 'F');
+                        }
+
+                        if (cutLinesEnabled) {
+                            doc.setDrawColor(148, 163, 184);
+                            doc.setLineWidth(0.01);
+                            doc.setLineDashPattern([0.05, 0.05], 0);
+                            doc.rect(x, y, coverSize, coverSize, 'S');
+                            doc.setLineDashPattern([], 0);
+                        }
+                    }
+
+                    // Subtle footer
+                    doc.setFontSize(8);
+                    doc.setTextColor(100, 116, 139);
+                    doc.text(`AlbumCoverSheet • Page ${p + 1} of ${totalPages}`, 0.5, 10.85);
+                    doc.text(`Size: ${coverSize}" x ${coverSize}"`, 8.0, 10.85, { align: 'right' });
+                }
+
+                doc.save('album-covers-sheet.pdf');
+                showToast(`Downloaded ${totalPages}-page PDF!`, "success");
+            } catch (err) {
+                console.error("PDF generation error:", err);
+                showToast("PDF download blocked—opening print dialog instead", "info");
+                triggerBrowserPrint();
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
+        }
+
+        // System print dialog fallback
+        function triggerBrowserPrint() {
+            if (albumsData.length === 0) {
+                showToast("Add at least one album cover first!", "error");
+                return;
+            }
+            renderPreview();
+            setTimeout(() => {
+                window.print();
+            }, 150);
+        }
+
+        // --- SAVE & LOAD LISTS (Browser LocalStorage + JSON File Backup) ---
+        const STORAGE_KEY = 'album_cover_sheet_saved_lists_v1';
+
+        function getSavedLists() {
+            try {
+                return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function setSavedLists(lists) {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(lists));
+                return true;
+            } catch (e) {
+                showToast("Storage full (try exporting a Backup file instead)", "error");
+                return false;
+            }
+        }
+
+        function saveCurrentList() {
+            if (albumsData.length === 0) {
+                showToast("Add at least one album before saving!", "error");
+                return;
+            }
+
+            const nameInput = document.getElementById('save-list-name');
+            const listName = nameInput.value.trim() || `Album List (${new Date().toLocaleDateString()})`;
+
+            const lists = getSavedLists();
+            const existingIdx = lists.findIndex(l => l.name.toLowerCase() === listName.toLowerCase());
+
+            const payload = {
+                id: existingIdx >= 0 ? lists[existingIdx].id : Math.random().toString(36).substr(2, 9),
+                name: listName,
+                updatedAt: new Date().toLocaleDateString(),
+                coverSize: coverSize,
+                cutLines: document.getElementById('cut-lines-toggle').checked,
+                albums: albumsData.map(a => ({
+                    id: a.id,
+                    query: a.query,
+                    artist: a.artist,
+                    title: a.title,
+                    selectedIndex: a.selectedIndex,
+                    status: a.status,
+                    // Keep up to 12 results per album so storage stays compact while preserving all choices
+                    results: a.results.slice(0, 12)
+                }))
+            };
+
+            if (existingIdx >= 0) {
+                lists[existingIdx] = payload;
+            } else {
+                lists.unshift(payload);
+            }
+
+            if (setSavedLists(lists)) {
+                nameInput.value = '';
+                renderSavedLists();
+                showToast(`Saved "${listName}" with exact covers!`, "success");
+            }
+        }
+
+        function loadSavedList(id) {
+            const lists = getSavedLists();
+            const found = lists.find(l => l.id === id);
+            if (!found) return;
+
+            albumsData = JSON.parse(JSON.stringify(found.albums));
+            document.getElementById('album-input').value = albumsData.map(a => a.query).join('\n');
+            document.getElementById('save-list-name').value = found.name;
+
+            if (found.coverSize) {
+                document.getElementById('cover-size-range').value = found.coverSize;
+                updateCoverSize(found.coverSize);
+            }
+            if (typeof found.cutLines === 'boolean') {
+                document.getElementById('cut-lines-toggle').checked = found.cutLines;
+            }
+
+            updateAlbumCounts();
+
+            renderManageGrid();
+            renderPreview();
+            showToast(`Loaded "${found.name}"`, "success");
+        }
+
+        function deleteSavedList(id) {
+            const lists = getSavedLists().filter(l => l.id !== id);
+            setSavedLists(lists);
+            renderSavedLists();
+            showToast("Deleted saved list", "info");
+        }
+
+        function renderSavedLists() {
+            const container = document.getElementById('saved-lists-container');
+            if (!container) return;
+            const lists = getSavedLists();
+
+            if (lists.length === 0) {
+                container.innerHTML = `<p class="text-[11px] text-slate-500 italic">No saved lists yet. Save your current set to edit or reprint later.</p>`;
+                return;
+            }
+
+            container.innerHTML = lists.map(l => `
+                <div class="flex items-center justify-between bg-slate-950/80 border border-slate-800 rounded-lg px-2.5 py-1.5 gap-2">
+                    <div class="min-w-0 flex-1">
+                        <p class="text-xs font-medium text-slate-200 truncate">${l.name}</p>
+                        <p class="text-[10px] text-slate-400">${l.albums.length} covers • ${l.updatedAt}</p>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <button onclick="loadSavedList('${l.id}')" class="px-2 py-1 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 text-[11px] font-medium rounded-md transition-colors">
+                            Load
+                        </button>
+                        <button onclick="deleteSavedList('${l.id}')" title="Delete list" class="px-1.5 py-1 text-slate-400 hover:text-rose-400 text-[11px] transition-colors">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function exportListFile() {
+            if (albumsData.length === 0) {
+                showToast("Nothing to export yet!", "error");
+                return;
+            }
+            const name = document.getElementById('save-list-name').value.trim() || 'album-cover-list';
+            const data = {
+                name,
+                coverSize,
+                cutLines: document.getElementById('cut-lines-toggle').checked,
+                albums: albumsData
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast("Downloaded backup JSON file!", "success");
+        }
+
+        function importListFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (!parsed.albums || !Array.isArray(parsed.albums)) throw new Error("Invalid format");
+                    albumsData = parsed.albums;
+                    document.getElementById('album-input').value = albumsData.map(a => a.query).join('\n');
+                    if (parsed.name) document.getElementById('save-list-name').value = parsed.name;
+                    if (parsed.coverSize) {
+                        document.getElementById('cover-size-range').value = parsed.coverSize;
+                        updateCoverSize(parsed.coverSize);
+                    }
+                    if (typeof parsed.cutLines === 'boolean') {
+                        document.getElementById('cut-lines-toggle').checked = parsed.cutLines;
+                    }
+                    updateAlbumCounts();
+                    renderManageGrid();
+                    renderPreview();
+                    showToast("Imported saved album list!", "success");
+                } catch (err) {
+                    showToast("Invalid backup file", "error");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // Re-scale preview cleanly when rotating phone or resizing browser
+        window.addEventListener('resize', () => {
+            if (albumsData.length > 0) renderPreview();
+        });
+
+        // Modal Controls
+        function openModal(index) {
+            activeModalIndex = index;
+            const album = albumsData[index];
+            document.getElementById('modal-album-title').innerText = album.title;
+            document.getElementById('modal-album-artist').innerText = album.artist;
+            document.getElementById('modal-custom-search').value = `${album.artist} ${album.title}`.trim();
+            document.getElementById('modal-match-count').innerText = album.results.length;
+
+            const grid = document.getElementById('modal-alternatives-grid');
+            let html = '';
+            album.results.forEach((res, rIdx) => {
+                const isSelected = rIdx === album.selectedIndex;
+                html += `
+                    <div onclick="selectAlternative(${rIdx})" title="${res.collectionName || ''} (${res.source || 'Web'})" class="relative aspect-square rounded-lg overflow-hidden border-2 ${isSelected ? 'border-indigo-500 shadow-md shadow-indigo-500/30' : 'border-slate-700 hover:border-slate-500'} cursor-pointer transition-all bg-slate-950">
+                        <img src="${res.artworkUrl}" onerror="this.closest('div').style.display='none'" class="w-full h-full object-cover">
+                        ${res.source ? `<span class="absolute bottom-1 left-1 text-[9px] px-1.5 py-0.2 bg-slate-950/80 text-slate-300 rounded">${res.source}</span>` : ''}
+                        ${isSelected ? '<div class="absolute inset-0 bg-indigo-500/20 flex items-center justify-center"><i class="fa-solid fa-circle-check text-indigo-400 text-lg"></i></div>' : ''}
+                    </div>
+                `;
+            });
+            grid.innerHTML = html;
+            document.getElementById('cover-modal').classList.remove('hidden');
+        }
+
+        async function searchMoreInModal() {
+            if (activeModalIndex === null) return;
+            const q = document.getElementById('modal-custom-search').value.trim();
+            if (!q) return;
+
+            const btn = document.getElementById('modal-search-btn');
+            const orig = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i>`;
+
+            await fetchAlbumCover(activeModalIndex, q);
+            btn.disabled = false;
+            btn.innerHTML = orig;
+            openModal(activeModalIndex);
+            showToast("Search updated!", "success");
+        }
+
+        function closeModal() {
+            document.getElementById('cover-modal').classList.add('hidden');
+            activeModalIndex = null;
+            renderManageGrid();
+            renderPreview();
+        }
+
+        function selectAlternative(rIdx) {
+            if (activeModalIndex !== null) {
+                albumsData[activeModalIndex].selectedIndex = rIdx;
+                openModal(activeModalIndex); // refresh modal selection UI
+                showToast("Cover updated!", "success");
+            }
+        }
+
+        function handleCustomFileUpload(event) {
+            const file = event.target.files[0];
+            if (file && activeModalIndex !== null) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const customUrl = e.target.result;
+                    const album = albumsData[activeModalIndex];
+                    // Add custom item to results and select it
+                    album.results.unshift({
+                        artworkUrl: customUrl,
+                        collectionName: album.title,
+                        artistName: album.artist
+                    });
+                    album.selectedIndex = 0;
+                    showToast("Custom image uploaded!", "success");
+                    closeModal();
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Toast notification helper
+        function toastTimeoutId(id) { window._currentToastId = id; }
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const msg = document.getElementById('toast-message');
+            const icon = document.getElementById('toast-icon');
+
+            msg.innerText = message;
+            if (type === 'success') {
+                icon.className = "fa-solid fa-circle-check text-emerald-400";
+            } else if (type === 'error') {
+                icon.className = "fa-solid fa-triangle-exclamation text-rose-400";
+            } else {
+                icon.className = "fa-solid fa-circle-info text-indigo-400";
+            }
+
+            toast.classList.remove('opacity-0', 'translate-y-20');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            if (window._currentToastId) clearTimeout(window._currentToastId);
+            const tid = setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'translate-y-20');
+            }, 3500);
+            toastTimeoutId(tid);
+        }
+
+        // Initialize with default preview state
+        window.onload = function() {
+            renderSavedLists();
+            renderPreview();
+        };
+    </script>
+</body>
+</html>
